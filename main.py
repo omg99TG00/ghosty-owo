@@ -84,7 +84,7 @@ def ensure_node():
 
 
 def ensure_node_deps():
-    """Installs discord.js directly and destroys package.json to prevent IDE tree stalls."""
+    """Installs discord.js directly, using pnpm to avoid OOM."""
     log_info("Ensuring Node.js dependencies...")
     
     # Force clean slate
@@ -94,14 +94,32 @@ def ensure_node_deps():
         os.remove("package-lock.json")
     if os.path.exists("package.json"):
         os.remove("package.json")
-        
+
+    # 1. Try pnpm (super low memory)
     try:
-        # Install ONLY what's needed, bypassing npm tree resolution
+        log_info("Configuring pnpm (low memory install)...")
+        subprocess.run(["corepack", "enable"], check=False, capture_output=True)
+        subprocess.run(["corepack", "prepare", "pnpm@latest", "--activate"], check=False, capture_output=True)
+        
         subprocess.run(
-            ["npm", "install", "discord.js@14.14.1", "dotenv", "--no-audit", "--no-fund", "--loglevel=error", "--no-save"],
-            check=True
+            ["pnpm", "add", "discord.js@14.14.1", "dotenv"],
+            check=True, capture_output=True
         )
-        log_success("Node.js dependencies installed.")
+        log_success("Node.js dependencies installed via pnpm.")
+        return True
+    except Exception as e:
+        log_warn(f"pnpm install failed, falling back to npm: {e}")
+        
+    # 2. Fallback to npm with strict memory limits
+    try:
+        log_info("Installing with npm (strict memory limits)...")
+        env = os.environ.copy()
+        env["NODE_OPTIONS"] = "--max-old-space-size=256"
+        subprocess.run(
+            ["npm", "install", "discord.js@14.14.1", "dotenv", "--no-audit", "--no-fund", "--no-optional", "--omit=dev", "--loglevel=error", "--no-save"],
+            check=True, env=env
+        )
+        log_success("Node.js dependencies installed via npm.")
         return True
     except Exception as e:
         log_warn(f"Failed to install Node dependencies: {e}")
