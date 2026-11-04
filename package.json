@@ -1,0 +1,20 @@
+{
+  "name": "ghosty-owo-multiuser",
+  "version": "4.1.0",
+  "description": "GhoSty OwO - discord.js controller + discord.py-self workers",
+  "main": "bot/index.js",
+  "type": "commonjs",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node bot/index.js",
+    "start:python": "python3 main.py",
+    "start:all": "concurrently \"npm start\" \"npm run start:python\""
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

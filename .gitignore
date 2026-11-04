@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+package-lock.json
+.venv/
+venv/
+*.log
+ghostyhbworkers.json
+ghostyworkerquests.json
+data/
+.DS_Store
