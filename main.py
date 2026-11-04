@@ -53,7 +53,6 @@ def ensure_node():
     if shutil.which("node"):
         return True
 
-    # Using Node 20 and .tar.gz to avoid missing xz utility in minimal containers
     node_version = "v20.12.2"
     node_folder = f"node-{node_version}-linux-x64"
     node_dir = os.path.abspath(node_folder)
@@ -161,8 +160,9 @@ if __name__ == "__main__":
         if ensure_node():
             try:
                 if not os.path.exists("node_modules"):
-                    log_info("Installing Node.js dependencies...")
-                    subprocess.run(["npm", "install", "--quiet", "--no-audit", "--no-fund", "--unsafe-perm"], check=True)
+                    log_info("Installing Node.js dependencies (direct)...")
+                    # Direct installation bypasses the "idealTree" freeze
+                    subprocess.run(["npm", "install", "discord.js@14.14.1", "dotenv", "--no-audit", "--no-fund", "--loglevel=error"], check=True)
                 
                 log_info("Starting Node.js controller...")
                 node_proc = subprocess.Popen(["node", "bot/index.js"])
