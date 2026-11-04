@@ -7,7 +7,8 @@ Controller (discord.js) runs in bot/index.js on a separate process.
 import os
 import sys
 import threading
-import logging
+import subprocess
+import shutil
 
 if hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -45,6 +46,39 @@ from core.heart import (
 
 global_manager = WorkerManager()
 global_manager.set_has_channels_config(True)
+
+
+def ensure_node():
+    """Download portable Node.js if not installed in the container."""
+    if shutil.which("node"):
+        return True
+
+    node_dir = os.path.abspath("node-v18.20.2-linux-x64")
+    node_bin = os.path.join(node_dir, "bin")
+
+    if not os.path.exists(os.path.join(node_bin, "node")):
+        log_info("Node.js not found. Downloading portable Node.js...")
+        tar_url = "https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz"
+        tar_file = "node.tar.xz"
+
+        try:
+            if shutil.which("curl"):
+                subprocess.run(["curl", "-sLO", tar_url], check=True)
+            elif shutil.which("wget"):
+                subprocess.run(["wget", "-q", tar_url], check=True)
+            else:
+                import urllib.request
+                urllib.request.urlretrieve(tar_url, tar_file)
+
+            subprocess.run(["tar", "-xf", tar_file], check=True)
+            os.remove(tar_file)
+            log_success("Node.js downloaded and extracted.")
+        except Exception as e:
+            log_warn(f"Failed to download Node.js: {e}")
+            return False
+
+    os.environ["PATH"] = node_bin + os.pathsep + os.environ.get("PATH", "")
+    return shutil.which("node") is not None
 
 
 def _run_standalone_worker(token: str, channel_id: int, worker_num: int = 999):
@@ -119,20 +153,21 @@ if __name__ == "__main__":
         log_success("Standalone worker started")
 
     # 4. Spawn Node.js controller automatically
-    import subprocess
-    import shutil
-    if shutil.which("node") and os.path.exists("bot/index.js"):
-        try:
-            if not os.path.exists("node_modules"):
-                log_info("Installing Node.js dependencies...")
-                subprocess.run(["npm", "install", "--quiet", "--no-audit", "--no-fund"], check=True)
-            
-            log_info("Starting Node.js controller...")
-            node_proc = subprocess.Popen(["node", "bot/index.js"])
-        except Exception as e:
-            log_warn(f"Failed to start Node controller: {e}")
+    if os.path.exists("bot/index.js"):
+        if ensure_node():
+            try:
+                if not os.path.exists("node_modules"):
+                    log_info("Installing Node.js dependencies...")
+                    subprocess.run(["npm", "install", "--quiet", "--no-audit", "--no-fund"], check=True)
+                
+                log_info("Starting Node.js controller...")
+                node_proc = subprocess.Popen(["node", "bot/index.js"])
+            except Exception as e:
+                log_warn(f"Failed to start Node controller: {e}")
+        else:
+            log_warn("Could not find or install Node.js. Controller will not run.")
     else:
-        log_warn("Node.js or bot/index.js not found. Controller will not run.")
+        log_warn("bot/index.js not found. Controller will not run.")
 
     try:
         for t in threads:
