@@ -1,0 +1,53 @@
+name: Build Ghosty OwO Repo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify source files
+        run: |
+          test -f make_repo.sh || { echo "::error::make_repo.sh missing"; exit 1; }
+          test -f main.py || { echo "::error::original main.py missing"; exit 1; }
+          grep -q "_EMBEDDED_BIN" main.py || { echo "::error::main.py has no _EMBEDDED_BIN dict — wrong file"; exit 1; }
+          echo "Sources OK"
+
+      - name: Build
+        run: bash make_repo.sh
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosty-owo-ready
+          path: ghosty-owo.zip
+          retention-days: 30
+
+      - name: Assemble repo root
+        run: |
+          rm -rf ./core ./dashboard ./assets ./bot
+          shopt -s dotglob nullglob
+          mv -f ghosty-owo/* .
+          rm -rf ghosty-owo ghosty-owo.zip make_repo.sh
+          echo "--- Final tree ---"
+          ls -la
+
+      - name: Commit result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "build: assemble complete repo"
+          git push
