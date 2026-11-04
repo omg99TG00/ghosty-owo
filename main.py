@@ -53,23 +53,28 @@ def ensure_node():
     if shutil.which("node"):
         return True
 
-    node_dir = os.path.abspath("node-v18.20.2-linux-x64")
+    # Using Node 20 for best compatibility with modern discord.js
+    node_version = "v20.12.2"
+    node_folder = f"node-{node_version}-linux-x64"
+    node_dir = os.path.abspath(node_folder)
     node_bin = os.path.join(node_dir, "bin")
 
     if not os.path.exists(os.path.join(node_bin, "node")):
         log_info("Node.js not found. Downloading portable Node.js...")
-        tar_url = "https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz"
+        tar_url = f"https://nodejs.org/dist/{node_version}/{node_folder}.tar.xz"
         tar_file = "node.tar.xz"
 
         try:
+            # Fixed: -o forces curl/wget to save exactly as "node.tar.xz"
             if shutil.which("curl"):
-                subprocess.run(["curl", "-sLO", tar_url], check=True)
+                subprocess.run(["curl", "-sLo", tar_file, tar_url], check=True)
             elif shutil.which("wget"):
-                subprocess.run(["wget", "-q", tar_url], check=True)
+                subprocess.run(["wget", "-qO", tar_file, tar_url], check=True)
             else:
                 import urllib.request
                 urllib.request.urlretrieve(tar_url, tar_file)
 
+            log_info("Download complete. Extracting...")
             subprocess.run(["tar", "-xf", tar_file], check=True)
             os.remove(tar_file)
             log_success("Node.js downloaded and extracted.")
@@ -158,7 +163,8 @@ if __name__ == "__main__":
             try:
                 if not os.path.exists("node_modules"):
                     log_info("Installing Node.js dependencies...")
-                    subprocess.run(["npm", "install", "--quiet", "--no-audit", "--no-fund"], check=True)
+                    # Using --unsafe-perm just in case the container runs as root
+                    subprocess.run(["npm", "install", "--quiet", "--no-audit", "--no-fund", "--unsafe-perm"], check=True)
                 
                 log_info("Starting Node.js controller...")
                 node_proc = subprocess.Popen(["node", "bot/index.js"])
