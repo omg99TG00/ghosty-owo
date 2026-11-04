@@ -84,30 +84,28 @@ def ensure_node():
 
 
 def ensure_node_deps():
-    """Installs discord.js directly, bypassing package.json devDependencies."""
-    node_modules = os.path.abspath("node_modules")
-    discord_js = os.path.join(node_modules, "discord.js")
-
-    if not os.path.exists(discord_js):
-        log_info("Installing discord.js dependencies (direct)...")
+    """Installs discord.js directly and destroys package.json to prevent IDE tree stalls."""
+    log_info("Ensuring Node.js dependencies...")
+    
+    # Force clean slate
+    if os.path.exists("node_modules"):
+        shutil.rmtree("node_modules", ignore_errors=True)
+    if os.path.exists("package-lock.json"):
+        os.remove("package-lock.json")
+    if os.path.exists("package.json"):
+        os.remove("package.json")
         
-        # Delete broken partial install if it exists
-        if os.path.exists(node_modules):
-            try:
-                shutil.rmtree(node_modules)
-            except Exception:
-                pass
-                
-        try:
-            subprocess.run(
-                ["npm", "install", "discord.js@14.14.1", "dotenv", "--no-audit", "--no-fund", "--loglevel=error"],
-                check=True
-            )
-            log_success("Node.js dependencies installed.")
-        except Exception as e:
-            log_warn(f"Failed to install Node dependencies: {e}")
-            return False
-    return True
+    try:
+        # Install ONLY what's needed, bypassing npm tree resolution
+        subprocess.run(
+            ["npm", "install", "discord.js@14.14.1", "dotenv", "--no-audit", "--no-fund", "--loglevel=error", "--no-save"],
+            check=True
+        )
+        log_success("Node.js dependencies installed.")
+        return True
+    except Exception as e:
+        log_warn(f"Failed to install Node dependencies: {e}")
+        return False
 
 
 def _run_standalone_worker(token: str, channel_id: int, worker_num: int = 999):
