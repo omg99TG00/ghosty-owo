@@ -72,7 +72,6 @@ def ensure_node():
                 import urllib.request
                 urllib.request.urlretrieve(tar_url, tar_file)
 
-            log_info("Download complete. Extracting...")
             subprocess.run(["tar", "-xzf", tar_file], check=True)
             os.remove(tar_file)
             log_success("Node.js downloaded and extracted.")
@@ -82,6 +81,33 @@ def ensure_node():
 
     os.environ["PATH"] = node_bin + os.pathsep + os.environ.get("PATH", "")
     return shutil.which("node") is not None
+
+
+def ensure_node_deps():
+    """Installs discord.js directly, bypassing package.json devDependencies."""
+    node_modules = os.path.abspath("node_modules")
+    discord_js = os.path.join(node_modules, "discord.js")
+
+    if not os.path.exists(discord_js):
+        log_info("Installing discord.js dependencies (direct)...")
+        
+        # Delete broken partial install if it exists
+        if os.path.exists(node_modules):
+            try:
+                shutil.rmtree(node_modules)
+            except Exception:
+                pass
+                
+        try:
+            subprocess.run(
+                ["npm", "install", "discord.js@14.14.1", "dotenv", "--no-audit", "--no-fund", "--loglevel=error"],
+                check=True
+            )
+            log_success("Node.js dependencies installed.")
+        except Exception as e:
+            log_warn(f"Failed to install Node dependencies: {e}")
+            return False
+    return True
 
 
 def _run_standalone_worker(token: str, channel_id: int, worker_num: int = 999):
@@ -157,19 +183,14 @@ if __name__ == "__main__":
 
     # 4. Spawn Node.js controller automatically
     if os.path.exists("bot/index.js"):
-        if ensure_node():
+        if ensure_node() and ensure_node_deps():
             try:
-                if not os.path.exists("node_modules"):
-                    log_info("Installing Node.js dependencies (direct)...")
-                    # Direct installation bypasses the "idealTree" freeze
-                    subprocess.run(["npm", "install", "discord.js@14.14.1", "dotenv", "--no-audit", "--no-fund", "--loglevel=error"], check=True)
-                
                 log_info("Starting Node.js controller...")
                 node_proc = subprocess.Popen(["node", "bot/index.js"])
             except Exception as e:
                 log_warn(f"Failed to start Node controller: {e}")
         else:
-            log_warn("Could not find or install Node.js. Controller will not run.")
+            log_warn("Node.js setup failed. Controller will not run.")
     else:
         log_warn("bot/index.js not found. Controller will not run.")
 
